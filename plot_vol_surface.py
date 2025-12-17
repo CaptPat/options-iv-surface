@@ -433,7 +433,8 @@ def run_analysis(input_file, output_file, spot=None, date=None, diff_file=None,
     spot_info = f"${meta_main['spot']} as of {meta_main['spot_time_str']}"
     main_title = f"IV Surface as of {meta_main['data_time_str']} (Spot {spot_info})"
 
-    if diff_file:
+    # Only process diff file in surface mode (ignore for line mode)
+    if diff_file and mode != 'line':
         print("\n--- Processing Reference File ---")
         try:
             df_ref, meta_ref = process_data(diff_file, None, None, min_dte, max_dte)
