@@ -12,6 +12,7 @@ import webbrowser
 
 # --- CONFIGURATION ---
 RISK_FREE_RATE = 0.04
+VERSION = "0.1.0"
 
 # --- GUI IMPORTS ---
 try:

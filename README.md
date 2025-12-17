@@ -33,6 +33,11 @@ python plot_vol_surface.py -i testdata01.csv --mode line --target-dte 7
 python plot_vol_surface.py -i testdata01.csv --diff testdata02.csv
 ```
 
+## Modes
+
+- **Surface (default)**: Builds a 3D IV surface across expirations. If a Diff CSV is provided, the chart visualizes IV changes (main minus reference) for overlapping expirations.
+- **Line (Pin/Smile)**: Plots a single-expiration smile and computes the pin target (minimum IV strike). Diff CSV is ignored in this mode.
+
 ## Header-Aware CSV Parsing
 
 The tool reads the first two metadata lines for spot and timestamps, then uses the table header row to detect columns. It supports common Fidelity patterns and minor variations.
