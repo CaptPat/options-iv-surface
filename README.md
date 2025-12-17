@@ -1,4 +1,3 @@
-git clone https://github.com/yourusername/NVDA_Vol_Surface.git
 # Options IV Surface Tool
 
 Flexible parsing and visualization for options IV surfaces and smiles from Fidelity ATP CSV exports. Works for any ticker as long as the export format matches the expected headers. Sample data in this repo uses NVDA, but the code is ticker-agnostic.
@@ -6,8 +5,8 @@ Flexible parsing and visualization for options IV surfaces and smiles from Fidel
 ## Installation
 
 ```powershell
-# Clone the repository (replace with your GitHub username and repo name)
-git clone https://github.com/yourusername/options-iv-surface.git
+# Clone the repository
+git clone https://github.com/CaptPat/options-iv-surface.git
 cd options-iv-surface
 
 # Create and activate conda environment (recommended)
