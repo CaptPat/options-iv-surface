@@ -109,3 +109,8 @@ Validation also reports numeric conversion stats for core fields (valid counts/p
 - Date parsing uses pandas.to_datetime for Expiration Date.
 - IV selection logic prefers Put IV below spot and Call IV at/above spot.
 - Charts auto-open unless disabled via GUI; CLI always opens on success.
+
+## Releases
+
+- Tagged releases are published under GitHub Releases. See the [releases page](https://github.com/CaptPat/options-iv-surface/releases). Current version: v0.1.0.
+- See [CHANGELOG.md](CHANGELOG.md) for notable changes.
