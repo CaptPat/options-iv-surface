@@ -1,0 +1,43 @@
+# Generated HTML outputs (keep *_example.html for documentation)
+vol_analysis.html
+diff_analysis.html
+pin_analysis.html
+options*.html
+!*_example.html
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Large data files (uncomment if you want to exclude real Fidelity exports)
+# fidelityATPExport-*.csv
