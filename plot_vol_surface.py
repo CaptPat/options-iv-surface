@@ -657,7 +657,9 @@ class IVSurfaceGUI:
 
         # Diff
         ttk.Label(file_frame, text="Diff CSV (Opt):").grid(row=2, column=0, sticky="w")
-        self.entry_diff = ttk.Entry(file_frame, width=40)
+        self.diff_var = tk.StringVar()
+        self.diff_var.trace_add('write', self.on_diff_change)
+        self.entry_diff = ttk.Entry(file_frame, width=40, textvariable=self.diff_var)
         self.entry_diff.grid(row=2, column=1, padx=5)
         ttk.Button(file_frame, text="Browse", command=self.browse_diff).grid(row=2, column=2)
 
@@ -729,20 +731,24 @@ class IVSurfaceGUI:
         if self.mode_var.get() == 'line':
             self.lbl_target.pack(side="left", padx=(10,2))
             self.entry_target.pack(side="left")
-            # Update output filename
-            if self.entry_output.get() in ['vol_analysis.html', 'diff_analysis.html', '']:
-                self.entry_output.delete(0, tk.END)
-                self.entry_output.insert(0, 'pin_analysis.html')
         else:
             self.lbl_target.forget()
             self.entry_target.forget()
-            # Update output filename
-            if self.entry_output.get() in ['pin_analysis.html', '']:
-                self.entry_output.delete(0, tk.END)
-                if self.entry_diff.get():
-                    self.entry_output.insert(0, 'diff_analysis.html')
-                else:
-                    self.entry_output.insert(0, 'vol_analysis.html')
+        # Unified output filename update based on mode/diff presence
+        self.update_output_default()
+
+    def update_output_default(self):
+        current = (self.entry_output.get() or '').strip()
+        mode = self.mode_var.get()
+        diff_present = bool((self.diff_var.get() or '').strip())
+        defaults = {'vol_analysis.html', 'diff_analysis.html', 'pin_analysis.html', ''}
+        if current in defaults:
+            if mode == 'line':
+                new_name = 'pin_analysis.html'
+            else:
+                new_name = 'diff_analysis.html' if diff_present else 'vol_analysis.html'
+            self.entry_output.delete(0, tk.END)
+            self.entry_output.insert(0, new_name)
 
     def browse_input(self):
         f = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")])
@@ -759,8 +765,15 @@ class IVSurfaceGUI:
     def browse_diff(self):
         f = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
         if f:
-            self.entry_diff.delete(0, tk.END)
-            self.entry_diff.insert(0, f)
+            self.diff_var.set(f)
+        else:
+            # If user cancels and clears, ensure defaults revert
+            if not self.entry_diff.get().strip():
+                self.diff_var.set('')
+
+    def on_diff_change(self, *args):
+        # Update output filename whenever diff field changes
+        self.update_output_default()
 
     def resolve_date_input(self, dte_str, date_str, current_analysis_date, is_max=False):
         """Helper to figure out DTE from either a DTE integer or a Date String"""
