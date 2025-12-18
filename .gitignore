@@ -41,3 +41,5 @@ build/
 
 # Large data files (uncomment if you want to exclude real Fidelity exports)
 # fidelityATPExport-*.csv
+# Archive files
+*.zip
