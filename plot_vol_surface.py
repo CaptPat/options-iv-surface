@@ -138,6 +138,16 @@ def schema_report(filepath):
     call_ask_col = _find_column(cols, must_have=['call', 'ask'])
     put_bid_col = _find_column(cols, must_have=['put', 'bid'])
     put_ask_col = _find_column(cols, must_have=['put', 'ask'])
+    call_oi_col = _find_column(cols, must_have=['call', 'open', 'int'])
+    put_oi_col = _find_column(cols, must_have=['put', 'open', 'int'])
+
+    # Fallback for Fidelity OI (sometimes just 'Open Int' repeated)
+    if not call_oi_col or not put_oi_col:
+        oi_cols = [c for c in cols if 'open' in str(c).lower() and 'int' in str(c).lower()]
+        if len(oi_cols) >= 2:
+            if not call_oi_col: call_oi_col = oi_cols[0]
+            if not put_oi_col: put_oi_col = oi_cols[1]
+
 
     # Fallback
     if not call_bid_col or not put_bid_col:
@@ -198,6 +208,16 @@ def validate_csv(filepath, strict=False, threshold=95.0):
     call_ask_col = _find_column(cols, must_have=['call', 'ask'])
     put_bid_col = _find_column(cols, must_have=['put', 'bid'])
     put_ask_col = _find_column(cols, must_have=['put', 'ask'])
+    call_oi_col = _find_column(cols, must_have=['call', 'open', 'int'])
+    put_oi_col = _find_column(cols, must_have=['put', 'open', 'int'])
+
+    # Fallback for Fidelity OI (sometimes just 'Open Int' repeated)
+    if not call_oi_col or not put_oi_col:
+        oi_cols = [c for c in cols if 'open' in str(c).lower() and 'int' in str(c).lower()]
+        if len(oi_cols) >= 2:
+            if not call_oi_col: call_oi_col = oi_cols[0]
+            if not put_oi_col: put_oi_col = oi_cols[1]
+
 
     # Fallback for Bid/Ask pairs
     if not call_bid_col or not put_bid_col:
@@ -268,6 +288,12 @@ def validate_csv(filepath, strict=False, threshold=95.0):
             print(msg)
             return False, msg
 
+    # Rename OI columns to standard names if found
+    rename_map = {}
+    if call_oi_col: rename_map[call_oi_col] = 'Call Open Int'
+    if put_oi_col: rename_map[put_oi_col] = 'Put Open Int'
+    if rename_map: df = df.rename(columns=rename_map)
+
     if missing:
         present = ', '.join([str(c) for c in cols])
         msg = (
@@ -279,6 +305,37 @@ def validate_csv(filepath, strict=False, threshold=95.0):
         return False, msg
 
     return True, "Headers look good."
+
+
+def calculate_max_pain(df_expiry):
+    """
+    Calculates Max Pain strike for a single expiration dataframe.
+    Max Pain = Strike where total value of options expiring is minimized.
+    """
+    if 'Call Open Int' not in df_expiry.columns or 'Put Open Int' not in df_expiry.columns:
+        return None, None
+
+    # Normalize to numeric arrays to avoid string/object math errors
+    strikes = pd.to_numeric(df_expiry['Strike'], errors='coerce').fillna(0).to_numpy(dtype=float)
+    call_ois = pd.to_numeric(df_expiry['Call Open Int'], errors='coerce').fillna(0).to_numpy(dtype=float)
+    put_ois = pd.to_numeric(df_expiry['Put Open Int'], errors='coerce').fillna(0).to_numpy(dtype=float)
+
+    pain_values = []
+
+    for price_point in strikes:
+        # If market settles at price_point:
+        # Call Value = max(0, price_point - K) * Call OI
+        call_value = np.maximum(0, price_point - strikes) * call_ois
+        # Put Value = max(0, K - price_point) * Put OI
+        put_value = np.maximum(0, strikes - price_point) * put_ois
+
+        total_pain = np.sum(call_value + put_value)
+        pain_values.append(total_pain)
+
+    if not pain_values: return None, None
+    min_pain_idx = np.argmin(pain_values)
+    return strikes[min_pain_idx], pain_values[min_pain_idx]
+
 
 def process_data(filepath, manual_spot, manual_date, min_dte, max_dte):
     # 1. Extract Metadata from Header
@@ -320,6 +377,16 @@ def process_data(filepath, manual_spot, manual_date, min_dte, max_dte):
         call_ask_col = _find_column(cols, must_have=['call', 'ask'])
         put_bid_col = _find_column(cols, must_have=['put', 'bid'])
         put_ask_col = _find_column(cols, must_have=['put', 'ask'])
+        call_oi_col = _find_column(cols, must_have=['call', 'open', 'int'])
+        put_oi_col = _find_column(cols, must_have=['put', 'open', 'int'])
+
+        # Fallback for Fidelity OI (sometimes just 'Open Int' repeated)
+        if not call_oi_col or not put_oi_col:
+            oi_cols = [c for c in cols if 'open' in str(c).lower() and 'int' in str(c).lower()]
+            if len(oi_cols) >= 2:
+                if not call_oi_col: call_oi_col = oi_cols[0]
+                if not put_oi_col: put_oi_col = oi_cols[1]
+
 
         # Fallback: handle Fidelity-style duplicated generic headers (Bid/Ask and Bid.1/Ask.1)
         if not call_bid_col or not put_bid_col:
@@ -345,6 +412,13 @@ def process_data(filepath, manual_spot, manual_date, min_dte, max_dte):
         if not call_ask_col: missing.append('Call Ask')
         if not put_bid_col: missing.append('Put Bid')
         if not put_ask_col: missing.append('Put Ask')
+
+        
+        # Rename OI columns to standard names if found
+        rename_map = {}
+        if call_oi_col: rename_map[call_oi_col] = 'Call Open Int'
+        if put_oi_col: rename_map[put_oi_col] = 'Put Open Int'
+        if rename_map: df = df.rename(columns=rename_map)
 
         if missing:
             present = ', '.join([str(c) for c in cols])
@@ -379,11 +453,16 @@ def process_data(filepath, manual_spot, manual_date, min_dte, max_dte):
         df['Call Mid'] = (df['Call Bid'] + df['Call Ask']) / 2
         df['Put Mid'] = (df['Put Bid'] + df['Put Ask']) / 2
 
+        # Straddle price (fallback if not provided in CSV)
+        if 'Straddle Price' not in df.columns or df['Straddle Price'].isna().all():
+            df['Straddle Price'] = df['Call Mid'] + df['Put Mid']
+
         # Date parsing (support multiple formats)
         df['Expiration Date'] = pd.to_datetime(df['Expiration Date'], errors='coerce')
 
-        # Calculate DTE
-        df['Days to Expiry'] = (df['Expiration Date'] - analysis_date).dt.days
+        # Calculate DTE using ceiling on fractional days to avoid undercounting when timestamps differ
+        delta_days = (df['Expiration Date'] - analysis_date).dt.total_seconds() / 86400.0
+        df['Days to Expiry'] = np.ceil(delta_days).astype(int)
         df['Time to Expiry'] = df['Days to Expiry'] / 365.25
 
         # Filter
@@ -496,12 +575,15 @@ def run_analysis(input_file, output_file, spot=None, date=None, diff_file=None,
     df_plot = df_plot[(df_plot['Strike'] >= lower_bound) & (df_plot['Strike'] <= upper_bound)].sort_values('Strike')
 
     # Apply Mode Restriction
+    selected_dte = None
     if mode == 'line':
         # Find the unique DTE closest to target_dte_line
-        available_dtes = df_plot['Days to Expiry'].unique()
+        available_dtes = np.sort(df_plot['Days to Expiry'].unique())
         if len(available_dtes) > 0:
             closest_dte = min(available_dtes, key=lambda x: abs(x - target_dte_line))
+            selected_dte = closest_dte
             print(f"Line Mode: Filtering to closest DTE {closest_dte} (Target: {target_dte_line})")
+            print(f"Available DTE buckets: {list(available_dtes)}")
             df_plot = df_plot[df_plot['Days to Expiry'] == closest_dte]
             main_title += f" [DTE: {closest_dte}]"
 
@@ -518,6 +600,34 @@ def run_analysis(input_file, output_file, spot=None, date=None, diff_file=None,
         dte_val = unique_dtes[0]
         # Sort strictly by Strike for 2D plotting
         df_plot = df_plot.sort_values('Strike')
+        # --- PIN ANALYSIS CALCULATIONS ---
+        # 1. Smile Pin (Min IV)
+        try:
+            min_iv_idx = df_plot[z_column].idxmin()
+            smile_target = df_plot.loc[min_iv_idx, 'Strike']
+            smile_val = df_plot.loc[min_iv_idx, z_column]
+        except:
+            smile_target, smile_val = None, None
+
+        # 2. Straddle Pin (Min Price)
+        straddle_target, straddle_val = None, None
+        if 'Straddle Price' in df_plot.columns:
+            try:
+                min_std_idx = df_plot['Straddle Price'].idxmin()
+                straddle_target = df_plot.loc[min_std_idx, 'Strike']
+                straddle_val = df_plot.loc[min_std_idx, 'Straddle Price']
+            except:
+                straddle_target, straddle_val = None, None
+
+        # 3. Max Pain
+        pain_target, pain_value = calculate_max_pain(df_plot)
+
+        print(f"\n--- PIN REPORT ---")
+        print(f"Smile Target: ${smile_target}")
+        straddle_print = f"${straddle_target}" if pd.notna(straddle_target) else "N/A"
+        print(f"Straddle Target: {straddle_print}")
+        print(f"Max Pain: ${pain_target}")
+
         
         # Calculate Pin Target (Min IV)
         if not df_plot[z_column].isnull().all():
@@ -541,14 +651,45 @@ def run_analysis(input_file, output_file, spot=None, date=None, diff_file=None,
             marker=dict(size=6)
         ))
 
-        fig.add_vline(x=current_spot, line_dash="dash", line_color="green", annotation_text="Spot")
+        fig.add_vline(x=current_spot, line_dash="dash", line_color="green")
+
+        # Optional overlays for other targets when available
+        def _target_y(strike_val):
+            series = df_plot.loc[df_plot['Strike'] == strike_val, z_column]
+            if not series.empty and series.notna().any():
+                return series.iloc[0]
+            return df_plot[z_column].max()
 
         if pin_text != "N/A":
+            fig.add_vline(x=min_iv_strike, line_dash="dot", line_color="firebrick")
+        if pd.notna(straddle_target):
+            fig.add_vline(x=straddle_target, line_dash="dot", line_color="royalblue")
+        if pd.notna(pain_target):
+            fig.add_vline(x=pain_target, line_dash="dot", line_color="orange")
+
+        # Consolidated legend box (paper coords) to avoid overlaps
+        legend_lines = []
+        if selected_dte is not None:
+            legend_lines.append(f"DTE bucket: {selected_dte} (requested {target_dte_line})")
+        legend_lines.append(f"<span style='color: green;'>---</span> Spot: ${current_spot:.2f}")
+        if pin_text != "N/A":
+            legend_lines.append(f"<span style='color: firebrick;'>---</span> Pin: ${min_iv_strike:.2f} (IV {min_iv_val:.4f})")
+        if pd.notna(straddle_target):
+            legend_lines.append(
+                f"<span style='color: royalblue;'>...</span> Straddle: ${straddle_target:.2f}" + (f" | Px {straddle_val:.2f}" if straddle_val is not None else "")
+            )
+        if pd.notna(pain_target):
+            legend_lines.append(
+                f"<span style='color: orange;'>...</span> Max Pain: ${pain_target:.2f}" + (f" | OI cost {pain_value:,.0f}" if pain_value is not None else "")
+            )
+
+        if legend_lines:
             fig.add_annotation(
-                x=min_iv_strike, y=min_iv_val,
-                text=pin_text,
-                showarrow=True, arrowhead=1, ax=0, ay=-40,
-                bgcolor="yellow", bordercolor="black"
+                x=0.02, y=0.98, xref='paper', yref='paper',
+                text='<br>'.join(legend_lines), align='left',
+                showarrow=False,
+                bgcolor="rgba(255,255,255,0.85)", bordercolor="#444", borderwidth=1,
+                font=dict(size=12)
             )
 
         fig.update_layout(
