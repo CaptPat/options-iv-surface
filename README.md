@@ -33,6 +33,14 @@ python plot_vol_surface.py -i testdata01.csv --mode line --target-dte 7
 python plot_vol_surface.py -i testdata01.csv --diff testdata02.csv
 ```
 
+## Standard Smoke Tests
+
+Run the canned checks from repo root (opens result HTMLs):
+
+```powershell
+./scripts/run_smoke_tests.ps1
+```
+
 ## Modes
 
 - **Surface (default)**: Builds a 3D IV surface across expirations. If a Diff CSV is provided, the chart visualizes IV changes (main minus reference) for overlapping expirations.
