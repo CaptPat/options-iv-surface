@@ -13,7 +13,7 @@ $steps = @(
 
 foreach ($step in $steps) {
     Write-Host "[RUN] $($step.Name)" -ForegroundColor Cyan
-    iex $step.Command
+    Invoke-Expression $step.Command
 }
 
 Write-Host "All smoke steps completed." -ForegroundColor Green

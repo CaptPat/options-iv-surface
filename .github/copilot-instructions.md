@@ -56,9 +56,9 @@ CSV parsing: `skiprows=3` then standardize to 18-column layout in `process_data(
 ## Development Environment
 
 ### Conda Environment
-Active environment: `VolMapStudy` (visible in terminal context)
+Active environment: `PythonDataScience` (visible in terminal context)
 ```powershell
-conda activate P:\anaconda3\envs\VolMapStudy
+conda activate P:\anaconda3\envs\PythonDataScience
 ```
 
 ### Dependencies
